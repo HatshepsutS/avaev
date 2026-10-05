@@ -1,0 +1,944 @@
+<title>Evaluador de AVAs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300..900;1,300..900&family=Roboto+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;1,400&family=Noto+Sans+Math&display=swap" rel="stylesheet">
+<style>
+/* Layout: documento técnico sobrio — hero con video, secciones alineadas a la izquierda, tablas y listas en lugar de tarjetas */
+:root {
+  --bg: #FFFFFF;
+  --bg-2: #F5F6F8;
+  --ink: #1B2834;
+  --muted: #5B6875;
+  --line: #E1E5EA;
+  --navy: #1B2834;
+  --navy-2: #22344A;
+  --on-navy: #FFFFFF;
+  --on-navy-muted: #A9B6C2;
+  --on-navy-line: rgba(255,255,255,.18);
+  --accent: #FF4519;
+  --accent-ink: #C2330F;
+  --accent-tint: #FFF1EC;
+  --good: #1D7F55;
+  --good-tint: #E6F4EC;
+  --blue: #2D63C8;
+  --blue-tint: #E8EFFB;
+  --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-math: 'STIX Two Text', 'Noto Sans Math', 'Cambria Math', 'Times New Roman', serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10181F; --bg-2: #16212B; --ink: #E6EBF0; --muted: #9AA8B5; --line: #2A3947;
+    --navy: #0A1219; --navy-2: #132231; --on-navy: #FFFFFF; --on-navy-muted: #9DACBA; --on-navy-line: rgba(255,255,255,.14);
+    --accent: #FF5A33; --accent-ink: #FF8A6B; --accent-tint: #351A11;
+    --good: #52C792; --good-tint: #12301F; --blue: #86ACF2; --blue-tint: #172741;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10181F; --bg-2: #16212B; --ink: #E6EBF0; --muted: #9AA8B5; --line: #2A3947;
+  --navy: #0A1219; --navy-2: #132231; --on-navy: #FFFFFF; --on-navy-muted: #9DACBA; --on-navy-line: rgba(255,255,255,.14);
+  --accent: #FF5A33; --accent-ink: #FF8A6B; --accent-tint: #351A11;
+  --good: #52C792; --good-tint: #12301F; --blue: #86ACF2; --blue-tint: #172741;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { margin: 0; line-height: 1.2; text-wrap: balance; }
+p { margin: 0; }
+code { font-family: var(--font-mono); font-size: .86em; }
+a { color: var(--accent-ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding-inline: 24px; }
+.section { padding-block: 72px; border-top: 1px solid var(--line); }
+.section.tint { background: var(--bg-2); }
+.section.dark { background: var(--navy); color: var(--on-navy); border-top: 0; }
+.head { display: grid; gap: 10px; max-width: 720px; margin-bottom: 36px; }
+.kicker { font-size: .78rem; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-ink); }
+.dark .kicker { color: #FF9A80; }
+.h2 { font-size: clamp(1.7rem, 3.2vw, 2.3rem); font-weight: 700; letter-spacing: -0.015em; }
+.head p { color: var(--muted); font-size: 1.05rem; max-width: 62ch; }
+.dark .head p { color: var(--on-navy-muted); }
+.sub { font-size: 1.05rem; font-weight: 700; margin: 40px 0 12px; }
+.small { font-size: .85rem; color: var(--muted); }
+
+/* Barra */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 50; background: var(--bg); border-bottom: 1px solid var(--line); }
+.nav-inner { display: flex; align-items: center; gap: 24px; padding-block: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; white-space: nowrap; }
+.mark { width: 10px; height: 10px; background: var(--accent); border-radius: 2px; flex: none; }
+.nav-links { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; min-width: 0; margin-left: auto; }
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-links a { text-decoration: none; font-size: .88rem; padding: 6px 10px; white-space: nowrap; color: var(--muted); border-bottom: 2px solid transparent; }
+.nav-links a:hover { color: var(--ink); }
+.nav-links a.active { color: var(--ink); border-bottom-color: var(--accent); }
+@media (max-width: 760px) { .brand span { display: none; } }
+
+/* Hero con video */
+.hero { position: relative; overflow: hidden; background: var(--navy); color: #fff; padding-block: 96px 88px; }
+.hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; pointer-events: none; }
+.hero-shade { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg, rgba(20,31,41,.88) 0%, rgba(20,31,41,.6) 55%, rgba(20,31,41,.25) 100%); }
+.hero .wrap { position: relative; z-index: 2; }
+.hero .kicker { color: #FF9A80; }
+.hero h1 { font-size: clamp(2.6rem, 6vw, 4.4rem); font-weight: 700; letter-spacing: -0.025em; margin: 14px 0 18px; }
+.hero-lead { font-size: clamp(1.1rem, 2vw, 1.4rem); font-weight: 300; max-width: 34ch; color: #EEF2F5; line-height: 1.45; }
+.hero-lead strong { font-weight: 500; color: #fff; }
+.facts { display: flex; flex-wrap: wrap; gap: 12px 0; margin-top: 40px; font-size: .92rem; color: #D7DFE6; }
+.facts span { padding-right: 20px; margin-right: 20px; border-right: 1px solid rgba(255,255,255,.3); }
+.facts span:last-child { border-right: 0; }
+.facts b { color: #fff; font-weight: 500; }
+
+/* En pocas palabras */
+.gist-lead { font-size: clamp(1.25rem, 2.4vw, 1.6rem); line-height: 1.4; max-width: 46ch; margin-bottom: 36px; }
+.gist-lead .was { color: var(--muted); }
+.gist-lead strong { font-weight: 700; }
+.gist { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 28px; }
+.gist > div { border-top: 2px solid var(--ink); padding-top: 12px; min-width: 0; }
+.gist h4 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+.gist p { font-size: .92rem; color: var(--muted); }
+.gist .tag { margin-left: 6px; vertical-align: 1px; }
+.oneliner { margin-top: 36px; padding: 18px 22px; background: var(--navy); color: #fff; border-radius: 8px; font-size: 1.1rem; }
+.oneliner span { display: block; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: #FF9A80; margin-bottom: 4px; }
+@media (max-width: 900px) { .gist { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 520px) { .gist { grid-template-columns: 1fr; gap: 18px; } }
+
+/* Tablas */
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--ink); }
+.compare td:first-child { color: var(--muted); width: 32%; }
+.compare td:nth-child(2) { width: 34%; }
+.compare td:last-child { font-weight: 500; }
+.tbl-wide { min-width: 820px; }
+.tbl-mid { min-width: 620px; }
+tr.main td { background: var(--accent-tint); }
+tr.main td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.mname { font-weight: 700; display: block; }
+.link-btn { background: none; border: 0; padding: 0; margin-top: 4px; font: 500 .82rem var(--font-sans); color: var(--accent-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.tag { display: inline-block; font-size: .74rem; font-weight: 500; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.tag.gate { background: var(--accent-tint); color: var(--accent-ink); }
+.tag.mid { background: var(--blue-tint); color: var(--blue); }
+.tag.diag { background: var(--bg-2); color: var(--muted); border: 1px solid var(--line); }
+.tag.code { background: var(--good-tint); color: var(--good); }
+.tag.llm { background: var(--accent-tint); color: var(--accent-ink); }
+.tag.gen { background: var(--blue-tint); color: var(--blue); }
+.tag.human { background: var(--bg-2); color: var(--ink); border: 1px solid var(--line); }
+
+.mq { display: block; font-size: .84rem; color: var(--muted); margin-top: 2px; }
+.mt td { vertical-align: top; }
+.mt td:nth-child(3), .mt td:nth-child(4) { font-size: .88rem; }
+.mt td:nth-child(3) { color: var(--muted); }
+tr.grp td { background: var(--bg-2); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink); font-weight: 500; padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+tr.grp td span { text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 400; margin-left: 8px; }
+.tag.new { background: var(--accent-tint); color: var(--accent-ink); }
+.tag.ext { background: var(--blue-tint); color: var(--blue); }
+.tag.agg { background: var(--bg-2); color: var(--muted); border: 1px solid var(--line); }
+.tally { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin-bottom: 20px; font-size: .92rem; }
+.tally .tag { margin-right: 6px; }
+
+/* Fórmulas */
+.fx { font-family: var(--font-math); font-size: 1.12rem; white-space: nowrap; line-height: 1.3; }
+.fx var, .fx i { font-style: italic; }
+.fx sub { font-size: .62em; vertical-align: -.35em; line-height: 0; }
+.fx .t { font-family: var(--font-sans); font-style: normal; font-size: .74em; }
+.frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: .82em; margin: 0 .12em; }
+.frac > span:first-child { border-bottom: 1px solid currentColor; padding: 0 .25em .05em; }
+.frac > span:last-child { padding: .05em .25em 0; }
+.op { margin: 0 .2em; }
+.big-op { font-size: 1.2em; vertical-align: -.08em; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 24px; font-size: .86rem; color: var(--muted); margin-bottom: 16px; }
+.legend .m { font-family: var(--font-math); font-size: 1.05em; color: var(--ink); }
+.notes { margin-top: 16px; display: grid; gap: 6px; font-size: .9rem; color: var(--muted); padding-left: 0; list-style: none; }
+.notes b { color: var(--ink); font-weight: 500; }
+
+/* Demo */
+.demo { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 48px; align-items: start; }
+.ficha dl { display: grid; grid-template-columns: 120px minmax(0,1fr); margin: 0; font-size: .92rem; }
+.ficha dt, .ficha dd { padding: 10px 0; border-bottom: 1px solid var(--line); margin: 0; }
+.ficha dt { color: var(--muted); font-size: .82rem; padding-top: 12px; }
+.ficha dd { min-width: 0; }
+.ids { display: flex; flex-wrap: wrap; gap: 6px; }
+.id { font-family: var(--font-mono); font-size: .8rem; padding: 2px 8px; border: 1px solid var(--line); border-radius: 4px; }
+.id.hl { border-color: var(--accent); color: var(--accent-ink); }
+.chat { display: grid; gap: 10px; }
+.chat-label { font-size: .82rem; color: var(--muted); }
+.bub { max-width: 86%; padding: 10px 14px; border-radius: 14px; font-size: .92rem; line-height: 1.45; }
+.bub.user { justify-self: end; background: var(--navy); color: #fff; border-bottom-right-radius: 4px; }
+.bub.ava { justify-self: start; background: var(--bg); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.tool { font-family: var(--font-mono); font-size: .78rem; color: var(--muted); border-left: 2px solid var(--accent); padding: 4px 0 4px 12px; margin-left: 8px; line-height: 1.6; }
+.slot { margin-top: 20px; border: 1px dashed var(--muted); border-radius: 8px; padding: 16px; font-size: .88rem; color: var(--muted); }
+.slot b { color: var(--ink); font-weight: 500; }
+@media (max-width: 860px) { .demo { grid-template-columns: 1fr; gap: 32px; } }
+
+.run { margin-top: 48px; }
+.run h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
+.run .meta { font-size: .88rem; color: var(--muted); margin-bottom: 16px; }
+.run-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 48px; align-items: start; }
+.run table td:nth-child(2), .run table th:nth-child(2) { text-align: center; font-variant-numeric: tabular-nums; }
+.ok { color: var(--good); font-weight: 500; }
+.ko { color: var(--accent-ink); font-weight: 500; }
+.finds { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); }
+.finds li { padding: 12px 0; border-bottom: 1px solid var(--line); font-size: .93rem; }
+.finds b { display: block; font-weight: 700; margin-bottom: 2px; }
+.finds p { color: var(--muted); }
+.real { display: inline-block; font-size: .72rem; font-weight: 500; padding: 1px 7px; border-radius: 4px; background: var(--good-tint); color: var(--good); margin-left: 6px; vertical-align: 1px; white-space: nowrap; }
+@media (max-width: 860px) { .run-grid { grid-template-columns: 1fr; gap: 32px; } }
+
+/* Capas */
+.layers { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); border-top: 1px solid var(--ink); }
+.layer { padding: 16px 18px 18px 0; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.layer + .layer { padding-left: 18px; border-left: 1px solid var(--line); }
+.layer .num { font-size: .78rem; color: var(--muted); }
+.layer h4 { font-size: 1rem; font-weight: 700; }
+.layer p { font-size: .88rem; color: var(--muted); line-height: 1.5; }
+.layer .talks { font-size: .8rem; }
+.layer .talks.yes { color: var(--good); }
+.layer .talks.no { color: var(--muted); }
+.layer.base h4 { color: var(--accent-ink); }
+.inline-actions { margin-top: 20px; }
+.gap-list { margin-top: 28px; font-size: .95rem; max-width: 80ch; }
+.gap-list b { font-weight: 500; }
+.note { margin-top: 16px; border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; font-size: .94rem; max-width: 70ch; }
+@media (max-width: 860px) { .layers { grid-template-columns: repeat(2, minmax(0,1fr)); } .layer:nth-child(3) { border-left: 0; padding-left: 0; } .layer:nth-child(n+3) { border-top: 1px solid var(--line); } }
+@media (max-width: 520px) { .layers { grid-template-columns: 1fr; } .layer + .layer { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); } }
+
+/* Aportes */
+.rows { border-top: 1px solid var(--ink); }
+.row { display: grid; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr) minmax(0,1.2fr); gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.row h4 { font-size: 1rem; font-weight: 700; }
+.row .q { font-size: .93rem; }
+.row .ex { font-size: .88rem; color: var(--muted); }
+.row.key h4 { color: var(--accent-ink); }
+.row .tag { margin-left: 6px; vertical-align: 1px; }
+@media (max-width: 760px) { .row { grid-template-columns: 1fr; gap: 4px; } }
+
+/* Arquitectura */
+.panel { background: var(--navy-2); border-radius: 8px; padding: 20px; }
+.diagram-scroll { overflow-x: auto; }
+.diagram-scroll svg { display: block; width: 100%; min-width: 680px; height: auto; }
+.bp-zone { fill: none; stroke: rgba(255,255,255,.25); stroke-width: 1; stroke-dasharray: 4 4; }
+.bp-box { fill: rgba(255,255,255,.04); stroke: rgba(255,255,255,.35); stroke-width: 1; }
+.bp-key { fill: rgba(255,69,25,.16); stroke: #FF5A33; stroke-width: 1.5; }
+.bp-opt { fill: none; stroke: rgba(255,255,255,.35); stroke-width: 1; stroke-dasharray: 4 4; }
+.bp-line { fill: none; stroke: rgba(255,255,255,.5); stroke-width: 1.25; }
+.bp-name { fill: #fff; font: 500 13px var(--font-sans); }
+.bp-sub { fill: var(--on-navy-muted); font: 400 11.5px var(--font-sans); }
+.bp-zname { fill: var(--on-navy-muted); font: 500 11px var(--font-sans); letter-spacing: .1em; text-transform: uppercase; }
+.bp-arrow { fill: rgba(255,255,255,.7); }
+.principles { margin-top: 32px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); column-gap: 40px; }
+.principle { padding: 12px 0; border-bottom: 1px solid var(--on-navy-line); font-size: .93rem; color: var(--on-navy-muted); min-width: 0; }
+.principle b { color: #fff; font-weight: 500; display: block; }
+.principle code { color: #FFB59F; }
+.contract { margin-top: 32px; display: grid; gap: 10px; font-size: .9rem; }
+.contract h4 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+.contract p { color: var(--on-navy-muted); }
+.contract code { color: #fff; }
+.contract .file { color: #FFB59F; font-family: var(--font-mono); font-size: .86em; }
+@media (max-width: 760px) { .principles { grid-template-columns: 1fr; } }
+
+/* Fase 2 */
+.cy-box { fill: var(--bg); stroke: var(--muted); stroke-width: 1; }
+.cy-key { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.5; }
+.cy-line { fill: none; stroke: var(--muted); stroke-width: 1.25; }
+.cy-arrow { fill: var(--muted); }
+.cy-name { fill: var(--ink); font: 500 13px var(--font-sans); }
+.cy-sub { fill: var(--muted); font: 400 11.5px var(--font-sans); }
+.cycle { border: 1px solid var(--line); border-radius: 8px; padding: 16px; background: var(--bg); }
+.agents { margin-top: 28px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 28px; }
+.agent { border-top: 2px solid var(--ink); padding-top: 12px; min-width: 0; }
+.agent h4 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+.agent p { font-size: .9rem; color: var(--muted); }
+.rules { margin-top: 28px; max-width: 70ch; }
+.rules h4 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+.rules ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: .93rem; }
+@media (max-width: 760px) { .agents { grid-template-columns: 1fr; gap: 16px; } }
+
+/* Ruta */
+.road { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 32px; border-top: 1px solid var(--on-navy-line); }
+.stop { padding-top: 18px; position: relative; min-width: 0; }
+.stop::before { content: ""; position: absolute; top: -6px; left: 0; width: 11px; height: 11px; border-radius: 50%; background: #FF5A33; }
+.stop.gate::before { background: var(--navy); border: 2px solid #FF9A80; border-radius: 2px; transform: rotate(45deg); }
+.stop.later::before { background: var(--on-navy-muted); }
+.stop .when { font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--on-navy-muted); }
+.stop h4 { font-size: 1.05rem; font-weight: 700; margin: 4px 0 8px; }
+.stop ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: .92rem; color: #D7DFE6; }
+.stop p { font-size: .92rem; color: #D7DFE6; }
+.stop code { color: #FFB59F; }
+@media (max-width: 760px) { .road { grid-template-columns: 1fr; gap: 20px; } }
+
+.criteria { margin-top: 48px; }
+.criteria h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 6px; }
+.criteria > p { color: var(--on-navy-muted); max-width: 64ch; margin-bottom: 20px; font-size: .95rem; }
+.crit-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); column-gap: 40px; }
+.crit { padding: 14px 0; border-top: 1px solid var(--on-navy-line); min-width: 0; display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 10px; }
+.crit .n { font-size: .85rem; color: #FF9A80; font-variant-numeric: tabular-nums; padding-top: 1px; }
+.crit b { display: block; font-weight: 500; color: #fff; margin-bottom: 4px; }
+.crit p { font-size: .9rem; color: #D7DFE6; }
+.crit .why { display: block; margin-top: 6px; font-size: .84rem; color: var(--on-navy-muted); }
+.crit code { color: #FFB59F; }
+.later-note { margin-top: 16px; font-size: .88rem; color: var(--on-navy-muted); max-width: 72ch; }
+@media (max-width: 760px) { .crit-grid { grid-template-columns: 1fr; } }
+
+/* Pasos */
+.two { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 48px; }
+.two h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; }
+.two ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: .94rem; }
+.plist { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.plist li { padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .93rem; display: grid; grid-template-columns: 96px minmax(0,1fr); gap: 12px; }
+.plist .k { font-size: .82rem; color: var(--muted); }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; gap: 32px; } }
+
+footer { border-top: 1px solid var(--line); padding-block: 28px; font-size: .85rem; color: var(--muted); }
+
+/* Diálogos */
+dialog { border: 1px solid var(--line); padding: 0; border-radius: 10px; width: min(560px, calc(100% - 32px)); max-height: 88vh; background: var(--bg); color: var(--ink); box-shadow: 0 24px 48px rgba(0,0,0,.28); }
+dialog::backdrop { background: rgba(14,22,29,.6); }
+#dlg-mcp { width: min(760px, calc(100% - 32px)); }
+.dlg { padding: 28px; display: grid; gap: 14px; }
+.dlg-top { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.dlg h3 { font-size: 1.4rem; font-weight: 700; margin-top: 4px; }
+.close { background: none; border: 1px solid var(--line); width: 34px; height: 34px; border-radius: 6px; cursor: pointer; color: var(--ink); display: grid; place-items: center; flex: none; }
+.close:hover { border-color: var(--ink); }
+.plain { font-size: 1.05rem; }
+.ex { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; font-size: .94rem; }
+.ex b { display: block; font-size: .78rem; color: var(--muted); font-weight: 500; }
+.why { font-size: .92rem; color: var(--muted); }
+.flow { display: grid; border-top: 1px solid var(--line); }
+.st { display: grid; grid-template-columns: 26px minmax(0,1fr) auto; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.st .n { font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.st b { font-size: .93rem; font-weight: 500; }
+.st p { font-size: .86rem; color: var(--muted); margin-top: 2px; }
+.st .warn { color: var(--accent-ink); }
+.loop { border-left: 2px solid var(--line); margin-left: 6px; padding-left: 12px; }
+.loop-lbl { font-size: .76rem; color: var(--muted); padding-top: 8px; display: block; letter-spacing: .04em; }
+.loop.inner { border-left-color: var(--accent); }
+.we { font-size: .92rem; padding-top: 4px; }
+@media (max-width: 560px) { .st { grid-template-columns: 22px minmax(0,1fr); } .st .tag { grid-column: 2; justify-self: start; } }
+</style>
+
+<nav class="nav" aria-label="Secciones">
+  <div class="wrap nav-inner">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span>Evaluador de AVAs</span></div>
+    <div class="nav-links">
+      <a href="#resumen" class="nav-link">En pocas palabras</a>
+      <a href="#problema" class="nav-link">Problema</a>
+      <a href="#demo" class="nav-link">Demo Tax</a>
+      <a href="#hoy" class="nav-link">Lo que existe</a>
+      <a href="#metricas" class="nav-link">Métricas</a>
+      <a href="#aportes" class="nav-link">Aportes</a>
+      <a href="#arquitectura" class="nav-link">Arquitectura</a>
+      <a href="#fase2" class="nav-link">Fase 2</a>
+      <a href="#ruta" class="nav-link">Ruta</a>
+      <a href="#pasos" class="nav-link">Siguientes pasos</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="inicio">
+  <video class="hero-video" autoplay muted loop playsinline preload="auto" aria-hidden="true">
+    <source src="https://www.genesys.com/media/Wave02-2024_1080p_11sec_24fps_alpha.webm" type="video/webm">
+  </video>
+  <div class="hero-shade" aria-hidden="true"></div>
+  <div class="wrap">
+    <p class="kicker">Propuesta del equipo · SC México</p>
+    <h1>Evaluador de AVAs</h1>
+    <p class="hero-lead">ava-mcp evalúa un AVA. <strong>Nosotros vigilamos el portafolio completo en el tiempo.</strong></p>
+    <div class="facts">
+      <span><b>Sobre ava-mcp</b>, sin modificarlo</span>
+      <span><b>Vista del AVA</b>, no por escenario</span>
+      <span><b>Pruebas continuas</b> en la fase 2</span>
+    </div>
+  </div>
+</header>
+
+<section class="section" id="resumen">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">En pocas palabras</p>
+      <h2 class="h2">¿Qué es lo nuevo que aportamos?</h2>
+    </div>
+    <p class="gist-lead"><span class="was">ava-mcp te dice si cada escenario pasó en una corrida.</span> Nosotros agregamos <strong>qué tan bueno es el AVA, qué tanto lo estamos probando y si está mejorando o empeorando</strong>, sin que alguien lo revise a mano.</p>
+    <div class="gist">
+      <div><h4>La vista del AVA completo</h4><p>ava-mcp califica cada escenario. Lo llevamos al AVA completo, con tres métricas nuevas y cada falla clasificada por su causa.</p></div>
+      <div><h4>Cobertura</h4><p>Qué parte del AVA estamos probando de verdad: qué rutas y herramientas quedan sin prueba, y qué artículos de la KB aparecen en las conversaciones.</p></div>
+      <div><h4>Seguimiento en el tiempo</h4><p>Qué se rompió con el último cambio, y un aviso si una demo se degrada aunque nadie la haya tocado.</p></div>
+      <div><h4>Pruebas que se hacen solas <span class="tag diag">Fase 2</span></h4><p>Agentes que generan escenarios donde falta cobertura, evalúan cada versión y explican por qué falló, con aprobación humana.</p></div>
+    </div>
+    <p class="oneliner"><span>En una línea</span>ava-mcp evalúa un AVA; nosotros vigilamos el portafolio completo en el tiempo.</p>
+  </div>
+</section>
+
+<section class="section tint" id="problema">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">El problema</p>
+      <h2 class="h2">Hoy sabemos si pasó cada escenario. No sabemos qué tan bien funciona el AVA.</h2>
+    </div>
+    <div class="table-scroll">
+      <table class="compare tbl-mid">
+        <thead><tr><th>Pregunta</th><th>Hoy</th><th>Con el evaluador</th></tr></thead>
+        <tbody>
+          <tr><td>¿Qué tan bien funciona el agente?</td><td>Resultados por escenario</td><td>Ocho métricas: la tasa de resolución y siete de diagnóstico</td></tr>
+          <tr><td>¿Por qué falló?</td><td>Todo cae en pass/fail: una respuesta vacía se reporta como falla de calidad</td><td>Fallas clasificadas: calidad, dato inventado, sin respuesta, juez incoherente</td></tr>
+          <tr><td>¿Qué parte del AVA probamos?</td><td>Nadie lo mide</td><td>Cobertura de rutas, tools, KB y guardrails</td></tr>
+          <tr><td>¿Mejoró o empeoró?</td><td>Cada corrida queda aislada</td><td>Regresión por versión y salud del portafolio</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="demo">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">Ejemplo de referencia</p>
+      <h2 class="h2">El demo Tax</h2>
+      <p>Un AVA ya construido con ava-mcp. Lo usamos solo para entender cómo funciona la herramienta y de dónde salen los ejemplos.</p>
+    </div>
+    <div class="demo">
+      <div class="ficha">
+        <dl>
+          <dt>Qué hace</dt><dd>Responde preguntas frecuentes sobre el SAT y consulta el estatus de una declaración con su número de acuse.</dd>
+          <dt>AVA</dt><dd><code>DEB_Podtivation_Tax</code> · v8.0</dd>
+          <dt>Conocimiento</dt><dd><code>SAT_FAQ_Source</code> (KB DEB-Podtivationtaxes)</dd>
+          <dt>Herramienta</dt><dd><code>DEB_consultardeclaracion</code>, por ID de acuse. En el mock, la fecha no importa.</dd>
+          <dt>IDs del mock</dt><dd><div class="ids"><span class="id">1245 · no presentada</span><span class="id">54321 · en procesamiento</span><span class="id">11111 · devolución en trámite</span><span class="id">88888 · con observaciones</span><span class="id">otro → default_mock</span></div></dd>
+          <dt>Origen</dt><dd>Sesión AXL “Tax Supervival”, org prod-mxc1</dd>
+        </dl>
+      </div>
+      <div>
+        <div class="chat" aria-label="Conversación de ejemplo">
+          <p class="chat-label">Así se ve una prueba (ilustrativa)</p>
+          <div class="bub user">Hola, quiero saber cómo va mi declaración. Mi acuse es 54321.</div>
+          <div class="tool">DEB_consultardeclaracion(acuse = 54321)<br>→ en procesamiento</div>
+          <div class="bub ava">Tu declaración con acuse 54321 está en procesamiento.</div>
+          <p class="small">El juez revisa que consulte el acuse correcto y que no diga nada que el mock no devolvió.</p>
+        </div>
+      </div>
+    </div>
+    <div class="run">
+      <h3>Una corrida real de ava-evaluate</h3>
+      <p class="meta"><code>eval-run-2026-10-03-001</code> · v8.0 · 8 escenarios × 3 attempts · umbral 0.67 · resultado: 4 de 8 escenarios, 15 de 24 attempts</p>
+      <p class="meta" style="margin-top:-10px">La corrida usó evaluación automatizada con checks deterministas (un script heurístico), no solo el scenario-runner con el LLM de Cursor.</p>
+      <div class="run-grid">
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Escenario</th><th>Attempts</th><th>Veredicto</th></tr></thead>
+            <tbody>
+              <tr><td>Estatus · ID 54321 en procesamiento</td><td>3/3</td><td class="ok">Pasa</td></tr>
+              <tr><td>Estatus · ID 88888 con observaciones</td><td>3/3</td><td class="ok">Pasa</td></tr>
+              <tr><td>Estatus · acuse desconocido</td><td>3/3</td><td class="ok">Pasa</td></tr>
+              <tr><td>Cliente no conoce su RFC</td><td>3/3</td><td class="ok">Pasa</td></tr>
+              <tr><td>Estatus · ID 1245 no presentada</td><td>2/3</td><td class="ko">Falla</td></tr>
+              <tr><td>FAQ · plazo de la declaración anual</td><td>1/3</td><td class="ko">Falla</td></tr>
+              <tr><td>Estatus · ID 11111 devolución en trámite</td><td>0/3</td><td class="ko">Falla</td></tr>
+              <tr><td>FAQ · deducción de colegiaturas</td><td>0/3</td><td class="ko">Falla</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <ul class="finds">
+            <li><b>Las FAQ no fallaron por calidad: el AVA no respondió.</b><p>La KB devolvió la respuesta correcta, pero el turno del AVA quedó vacío y la sesión terminó. La misma pregunta de plazos sí se respondió bien en el attempt 1. El scorecard lo reporta como “respuesta incompleta”.</p></li>
+            <li><b>La evaluación se contradice.</b><p>En el ID 11111, guardrails salió reprobado con la evidencia “Sin garantía/monto”, que indica lo contrario, en los 3 attempts. En las FAQ, la evidencia citada es el saludo, incluso cuando aprueba.</p></li>
+            <li><b>2 de 3 no alcanza.</b><p>El ID 1245 pasó 2 de 3 (0.667) y reprobó contra el umbral 0.67. En la práctica, con 3 attempts se exige 3 de 3.</p></li>
+          </ul>
+          <p class="small" style="margin-top:12px">Nada de esto aparece en el scorecard: hubo que abrir cada <code>attempt-N.json</code> para verlo.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section tint" id="hoy">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">Lo que ya existe</p>
+      <h2 class="h2">ava-mcp prueba cada AVA en cuatro capas</h2>
+      <p>La cuarta ya repite escenarios, simula al cliente, juzga y califica. Es nuestra base.</p>
+    </div>
+    <div class="layers">
+      <div class="layer">
+        <span class="num">Capa 1</span>
+        <h4>Mock Data Action</h4>
+        <p>Valida cada mock y <code>default_mock</code>.</p>
+        <span class="talks no">No conversa con el AVA</span>
+      </div>
+      <div class="layer">
+        <span class="num">Capa 2</span>
+        <h4>Publish AVA</h4>
+        <p>Deja una versión válida en TestReady.</p>
+        <span class="talks no">No conversa con el AVA</span>
+      </div>
+      <div class="layer">
+        <span class="num">Capa 3</span>
+        <h4>Cicero (Preview API)</h4>
+        <p>Texto, <code>toolCalls</code>, <code>toolResults</code>, guardrails.</p>
+        <span class="talks yes">Conversa con el AVA</span>
+      </div>
+      <div class="layer base">
+        <span class="num">Capa 4 · base del evaluador</span>
+        <h4>ava-test + ava-evaluate</h4>
+        <p>Repeticiones, cliente simulado, trayectoria, juez y scorecard.</p>
+        <span class="talks yes">Conversa con el AVA</span>
+      </div>
+    </div>
+    <div class="inline-actions"><button type="button" class="link-btn" id="open-mcp">Ver cómo corre una evaluación por dentro</button></div>
+    <p class="gap-list"><b>Le falta:</b> métricas del AVA completo, clasificación de fallas, cobertura, histórico y regresión, monitoreo continuo, modelo del juez fijo y captura consistente de guardrails.</p>
+    <p class="note">El runner y el juez dependen de cómo se corra la evaluación (el LLM de Cursor de quien la corre, o un script), y eso no queda registrado. Dos corridas hechas de forma distinta no son comparables.</p>
+  </div>
+</section>
+
+<section class="section" id="metricas">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">Métricas</p>
+      <h2 class="h2">Del scorecard por escenario a la vista del AVA</h2>
+      <p>ava-mcp ya califica cada attempt. Lo que aportamos es llevar eso al AVA completo, ampliar tres métricas y sumar tres que no existen. <b>El componente no reemplaza el veredicto del scorecard:</b> el pass/fail de ava-mcp sigue siendo el oficial, y nosotros agregamos la vista del AVA y la clasificación de fallas al lado.</p>
+    </div>
+    <div class="tally">
+      <span><span class="tag new">Nueva</span>3 no existen en ava-mcp</span>
+      <span><span class="tag ext">Ampliada</span>3 existen en parte</span>
+      <span><span class="tag agg">Ya existe</span>2 solo se agregan a nivel AVA</span>
+      <span style="color:var(--muted)">· Núcleo de la fase 1: resolución, fidelidad y clasificación de fallas. Las 3 nuevas van en la fase 1.5.</span>
+    </div>
+    <div class="legend">
+      <span><span class="m"><i>N</i></span> = escenarios × attempts</span>
+      <span><span class="m"><i>M</i></span> = escenarios</span>
+      <span><span class="m">𝟙[·]</span> = 1 si se cumple</span>
+      <span><span class="m"><i>τ</i>*</span> = trayectoria de referencia</span>
+    </div>
+    <div class="table-scroll">
+      <table class="tbl-wide mt">
+        <thead><tr><th>Métrica</th><th>Fórmula</th><th>En ava-mcp hoy</th><th>Lo que aportamos</th></tr></thead>
+        <tbody>
+          <tr class="grp"><td colspan="4">Nuevas <span>No existen en ava-mcp</span></td></tr>
+          <tr>
+            <td><span class="mname">Eficiencia <span class="tag agg">Fase 1.5</span></span><span class="mq">¿Da vueltas de más?</span><button type="button" class="link-btn explain" data-m="eficiencia">¿Qué significa?</button></td>
+            <td><span class="fx"><i>η</i><sub><i>i</i></sub><span class="op">=</span><span class="frac"><span>|<i>τ</i><sub><i>i</i></sub>|</span><span>|<i>τ</i><sub><i>i</i></sub>*|</span></span></span></td>
+            <td>Layer 1 ve tools de más, pero no cuenta pasos ni detecta bucles</td>
+            <td><span class="tag new">Nueva</span> Pasos contra la referencia y bucles (misma tool y parámetros seguidos)</td>
+          </tr>
+          <tr>
+            <td><span class="mname">Manejo de errores <span class="tag agg">Fase 1.5</span></span><span class="mq">¿Se recupera si el dato no existe?</span><button type="button" class="link-btn explain" data-m="errores">¿Qué significa?</button></td>
+            <td><span class="fx"><var>R</var><sub>err</sub><span class="op">=</span><var>R</var> <span class="t">en escenarios</span> <code style="font-size:.62em">default_mock</code></span></td>
+            <td>No se reporta</td>
+            <td><span class="tag new">Nueva</span> Resolución solo en escenarios que caen en <code>default_mock</code></td>
+          </tr>
+          <tr>
+            <td><span class="mname">Robustez <span class="tag agg">Fase 1.5</span></span><span class="mq">¿Aguanta clientes difíciles?</span><button type="button" class="link-btn explain" data-m="robustez">¿Qué significa?</button></td>
+            <td><span class="fx"><span class="t">Δ</span><span class="op">=</span><var>R</var><sub>típico</sub><span class="op">−</span><var>R</var><sub>difícil</sub></span></td>
+            <td>Los escenarios no tienen categoría</td>
+            <td><span class="tag new">Nueva</span> Etiqueta típico o difícil y mide la brecha; menor es mejor</td>
+          </tr>
+
+          <tr class="grp"><td colspan="4">Ampliadas <span>Existen en parte</span></td></tr>
+          <tr class="main">
+            <td><span class="mname">Tasa de resolución <span class="tag gate">Principal</span></span><span class="mq">¿Resuelve lo que el cliente necesita?</span><button type="button" class="link-btn explain" data-m="resolucion">¿Qué significa?</button></td>
+            <td><span class="fx"><var>R</var><span class="op">=</span><span class="frac"><span>1</span><span><var>N</var></span></span><span class="big-op">∑</span><sub><i>i</i></sub> 𝟙[<span class="t">goal</span><sub><i>i</i></sub><span class="op">∧</span><span class="t">gates</span><sub><i>i</i></sub>]</span></td>
+            <td>Cada attempt tiene <code>pass</code>; el resumen solo cuenta escenarios (4/8)</td>
+            <td><span class="tag ext">Ampliada</span> A nivel AVA (15/24), sin contar como falla del AVA las que fueron de la evaluación</td>
+          </tr>
+          <tr>
+            <td><span class="mname">Fidelidad a datos <span class="tag gate">Núcleo</span></span><span class="mq">¿Inventa información?</span><button type="button" class="link-btn explain" data-m="fidelidad">¿Qué significa?</button></td>
+            <td><span class="fx"><var>F</var><span class="op">=</span><span class="frac"><span>1</span><span><var>N</var></span></span><span class="big-op">∑</span><sub><i>i</i></sub> 𝟙[<span class="t">datos</span><sub><i>i</i></sub><span class="op">⊆</span><span class="t">toolResults</span><sub><i>i</i></sub><span class="op">∪</span><span class="t">KB</span>]</span></td>
+            <td>Solo si el escenario trae esa assertion en su rúbrica</td>
+            <td><span class="tag ext">Ampliada</span> En todos los escenarios, con chequeo híbrido: determinista para Data Actions (estatus, montos y fechas contra <code>toolResults</code>) y juez con pregunta binaria para respuestas de la KB, que vienen parafraseadas</td>
+          </tr>
+          <tr>
+            <td><span class="mname">Guardrails</span><span class="mq">¿Respeta los límites?</span><button type="button" class="link-btn explain" data-m="guardrails">¿Qué significa?</button></td>
+            <td><span class="fx"><var>G</var><span class="op">=</span><span class="frac"><span>1</span><span><var>N</var></span></span><span class="big-op">∑</span><sub><i>i</i></sub> 𝟙[<i>v</i><sub><i>i</i></sub><span class="op">=</span>0]</span></td>
+            <td>Dimensión <code>guardrail</code>; si faltan eventos, pasa igual</td>
+            <td><span class="tag ext">Ampliada</span> Marca “sin dato” cuando <code>guardrail_events</code> no se capturó</td>
+          </tr>
+
+          <tr class="grp"><td colspan="4">Ya existen <span>Solo se agregan a nivel AVA</span></td></tr>
+          <tr>
+            <td><span class="mname">Precisión de herramientas</span><span class="mq">¿Consulta lo correcto?</span><button type="button" class="link-btn explain" data-m="herramientas">¿Qué significa?</button></td>
+            <td><span class="fx"><var>P</var><span class="op">=</span><span class="frac"><span>1</span><span><var>N</var></span></span><span class="big-op">∑</span><sub><i>i</i></sub> 𝟙[<i>τ</i><sub><i>i</i></sub><span class="op">=</span><i>τ</i><sub><i>i</i></sub>*]</span></td>
+            <td>Dimensión <code>tool_use</code> y <code>validate_trajectory</code></td>
+            <td><span class="tag agg">Ya existe</span> Solo el agregado del AVA</td>
+          </tr>
+          <tr>
+            <td><span class="mname">Consistencia</span><span class="mq">¿Da siempre el mismo resultado?</span><button type="button" class="link-btn explain" data-m="consistencia">¿Qué significa?</button></td>
+            <td><span class="fx"><var>C</var><span class="op">=</span><span class="frac"><span>1</span><span><var>M</var></span></span><span class="big-op">∑</span><sub><i>j</i></sub> 𝟙[∀<i>k</i> : <span class="t">pasa</span><sub><i>jk</i></sub>]</span></td>
+            <td>Con 0.67 y 3 attempts, el veredicto ya exige 3 de 3</td>
+            <td><span class="tag agg">Ya existe</span> Se reporta aparte, sin mezclarla con el pass/fail; proponemos aclarar el umbral (0.66 o fracción)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="notes">
+      <li><b>Gates:</b> igual que en ava-mcp, si fallan, la corrida no cuenta como resuelta.</li>
+      <li><b>Sin dato:</b> un campo que falta nunca cuenta como aprobado.</li>
+      <li><b>Fuera del marco:</b> BLEU, ROUGE y toxicidad. El tono sigue en el scorecard.</li>
+    </ul>
+
+    <h3 class="sub">De la propuesta inicial al marco</h3>
+    <div class="table-scroll">
+      <table class="tbl-mid">
+        <thead><tr><th>Propuesta inicial</th><th>En el marco</th><th>Cambio</th></tr></thead>
+        <tbody>
+          <tr><td>Task Success</td><td>Tasa de resolución</td><td>Además exige pasar los gates</td></tr>
+          <tr><td>Tool Call Accuracy</td><td>Precisión de herramientas</td><td>Sin LLM, vía <code>validate_trajectory</code></td></tr>
+          <tr><td>Pasos y bucles (más de 5–6 pasos)</td><td>Eficiencia</td><td>Contra la referencia, no un umbral fijo</td></tr>
+          <tr><td>Tokens y costo</td><td>Pendiente</td><td>Confirmar si el Preview API lo expone</td></tr>
+          <tr><td>Fidelidad (prioridad baja)</td><td>Fidelidad a datos (gate)</td><td>Es el fallo más grave</td></tr>
+          <tr><td>Toxicidad y tono</td><td>Tono en el scorecard</td><td>Los guardrails cubren la toxicidad</td></tr>
+          <tr><td>—</td><td>Guardrails, errores, robustez, consistencia</td><td>Riesgos propios de un AVA</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="section tint" id="aportes">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">Qué aportamos sobre ava-mcp</p>
+      <h2 class="h2">ava-mcp evalúa un AVA. Nosotros vigilamos el portafolio.</h2>
+    </div>
+    <div class="rows">
+      <div class="row"><h4>Métricas del AVA</h4><p class="q">¿Qué tan bien funciona el agente completo?</p><p class="ex">“Resolución 8 de 10, sin datos inventados.”</p></div>
+      <div class="row"><h4>Clasificación de fallas</h4><p class="q">¿Falló el AVA, la evaluación o el juez?</p><p class="ex">Dos FAQ reportadas como “respuesta incompleta” cuando el AVA no respondió nada. <span class="real">Corrida real</span></p></div>
+      <div class="row"><h4>Cobertura</h4><p class="q">¿Qué parte del AVA estamos probando? Rutas de mocks y tools sin LLM; de la KB, los artículos que aparecen en las conversaciones observadas.</p><p class="ex">“4 de 5 rutas de DEB_consultardeclaracion; 3 artículos de la KB consultados en la corrida.”</p></div>
+      <div class="row key"><h4>Salud del portafolio <span class="tag gate">Clave para preventa</span></h4><p class="q">¿Siguen funcionando las demos aunque nadie las toque?</p><p class="ex">“El demo Tax bajó de 9/10 a 6/10 desde el martes, sin cambios en el AVA.”</p></div>
+      <div class="row"><h4>Regresión entre versiones</h4><p class="q">¿Qué se rompió con el último cambio?</p><p class="ex">“3 escenarios pasaban en la v8 y fallan en la v9.”</p></div>
+      <div class="row"><h4>Paquetes de escenarios</h4><p class="q">Sets base por industria y adversariales, listos para adaptar.</p><p class="ex">“Un AVA de banca nuevo arranca con 15 escenarios, no desde cero.”</p></div>
+      <div class="row"><h4>Calibración de la evaluación</h4><p class="q">¿El runner y el juez siguen coincidiendo con el equipo cuando cambia el modelo o el script?</p><p class="ex">En el ID 11111 el veredicto contradijo su propia evidencia (“Sin garantía/monto”). <span class="real">Corrida real</span></p></div>
+    </div>
+    <p class="small" style="margin-top:12px">Los ejemplos entre comillas son ilustrativos; los marcados como corrida real salen de <code>eval-run-2026-10-03-001</code>.</p>
+    <p class="note"><b>¿Dónde vive?</b> Lo llevamos al equipo de ava-mcp como “capa de métricas y seguimiento” y decidimos juntos si queda separado o como módulo dentro de su paquete.</p>
+  </div>
+</section>
+
+<section class="section dark" id="arquitectura">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">Arquitectura</p>
+      <h2 class="h2">Un framework separado, conectado por un solo adaptador</h2>
+    </div>
+    <div class="panel">
+      <div class="diagram-scroll">
+        <svg viewBox="0 0 760 560" role="img" aria-label="Arquitectura: Genesys Cloud, ava-mcp sin cambios y el evaluador conectado por un adaptador">
+          <defs>
+            <marker id="bpa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="bp-arrow"/></marker>
+          </defs>
+          <rect class="bp-zone" x="16" y="112" width="192" height="112" rx="6"/>
+          <text class="bp-zname" x="32" y="136">Genesys Cloud</text>
+          <rect class="bp-zone" x="232" y="24" width="216" height="288" rx="6"/>
+          <text class="bp-zname" x="248" y="48">ava-mcp · sin cambios</text>
+          <rect class="bp-zone" x="472" y="24" width="272" height="528" rx="6"/>
+          <text class="bp-zname" x="488" y="48">Evaluador de AVAs</text>
+
+          <path class="bp-line" d="M192 180H248" marker-start="url(#bpa)" marker-end="url(#bpa)"/>
+          <path class="bp-line" d="M340 120V152" marker-end="url(#bpa)"/>
+          <path class="bp-line" d="M340 208V240" marker-end="url(#bpa)"/>
+          <path class="bp-line" d="M488 172H432" marker-end="url(#bpa)"/>
+          <path class="bp-line" d="M432 268H460V196H488" marker-end="url(#bpa)"/>
+          <path class="bp-line" d="M608 120V152" marker-end="url(#bpa)"/>
+          <path class="bp-line" d="M608 208V240" marker-end="url(#bpa)"/>
+          <path class="bp-line" d="M608 296V328" marker-end="url(#bpa)"/>
+          <path class="bp-line" d="M608 384V416" marker-end="url(#bpa)"/>
+          <path class="bp-line" d="M608 472V496" marker-end="url(#bpa)"/>
+
+          <rect class="bp-box" x="32" y="152" width="160" height="56" rx="4"/>
+          <text class="bp-name" x="112" y="176" text-anchor="middle">AVA en TestReady</text>
+          <text class="bp-sub" x="112" y="192" text-anchor="middle">Mocks deterministas</text>
+
+          <rect class="bp-box" x="248" y="64" width="184" height="56" rx="4"/>
+          <text class="bp-name" x="340" y="88" text-anchor="middle">Test cases</text>
+          <text class="bp-sub" x="340" y="104" text-anchor="middle">Persona, goal, rúbrica</text>
+          <rect class="bp-box" x="248" y="152" width="184" height="56" rx="4"/>
+          <text class="bp-name" x="340" y="176" text-anchor="middle">ava-evaluate</text>
+          <text class="bp-sub" x="340" y="192" text-anchor="middle">Corre vía cicero_*</text>
+          <rect class="bp-box" x="248" y="240" width="184" height="56" rx="4"/>
+          <text class="bp-name" x="340" y="264" text-anchor="middle">Archivos de la corrida</text>
+          <text class="bp-sub" x="340" y="280" text-anchor="middle">attempt-N + scorecard</text>
+
+          <rect class="bp-box" x="488" y="64" width="240" height="56" rx="4"/>
+          <text class="bp-name" x="608" y="88" text-anchor="middle">Config de evaluación</text>
+          <text class="bp-sub" x="608" y="104" text-anchor="middle">attempts ≥ 3, modelo fijo, gates</text>
+          <rect class="bp-key" x="488" y="152" width="240" height="56" rx="4"/>
+          <text class="bp-name" x="608" y="176" text-anchor="middle">Adaptador ava-mcp</text>
+          <text class="bp-sub" x="608" y="192" text-anchor="middle">Lee, valida y normaliza</text>
+          <rect class="bp-opt" x="488" y="240" width="240" height="56" rx="4"/>
+          <text class="bp-name" x="608" y="264" text-anchor="middle">Calibración del juez</text>
+          <text class="bp-sub" x="608" y="280" text-anchor="middle">Juez propio solo si hace falta</text>
+          <rect class="bp-box" x="488" y="328" width="240" height="56" rx="4"/>
+          <text class="bp-name" x="608" y="352" text-anchor="middle">Métricas y cobertura</text>
+          <text class="bp-sub" x="608" y="368" text-anchor="middle">Núcleo + fase 1.5</text>
+          <rect class="bp-box" x="488" y="416" width="240" height="56" rx="4"/>
+          <text class="bp-name" x="608" y="440" text-anchor="middle">Histórico</text>
+          <text class="bp-sub" x="608" y="456" text-anchor="middle">Por versión, con regresión</text>
+          <rect class="bp-box" x="488" y="496" width="240" height="44" rx="4"/>
+          <text class="bp-name" x="608" y="523" text-anchor="middle">Reporte y alerta</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="principles">
+      <div class="principle"><b>ava-mcp no se toca</b>Categorías y gates viven en un overlay propio.</div>
+      <div class="principle"><b>Un solo punto de dependencia</b>Si ava-mcp cambia, solo cambia el adaptador.</div>
+      <div class="principle"><b>Lee archivos, no APIs</b><code>attempt-N.json</code> y <code>scorecard.json</code>, no <code>cicero_*</code>.</div>
+      <div class="principle"><b>Versión fijada</b><code>rubricVersion</code> y skills 1.5.3, con pruebas de contrato.</div>
+      <div class="principle"><b>Modelo fijo y registrado</b>Cada corrida guarda <code>judgeModel</code>.</div>
+      <div class="principle"><b>Ausencia no es aprobación</b>Un campo que falta deja la métrica en “sin dato”.</div>
+    </div>
+
+    <div class="contract">
+      <h4>Contrato con ava-mcp</h4>
+      <p><span class="file">attempt-N.json</span> · <code>transcript</code>, <code>tool_calls</code>, <code>guardrail_events</code>, <code>layer1</code>, <code>layer2</code>, <code>reference_trajectory</code>, <code>scenario_meta</code></p>
+      <p><span class="file">scorecard.json</span> · <code>run_id</code>, <code>perScenario</code>, <code>dimensionScores</code>, <code>metadata.rubricVersion</code></p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="fase2">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">Fase 2</p>
+      <h2 class="h2">Agentes que generan, ejecutan y analizan las pruebas</h2>
+    </div>
+    <div class="cycle">
+      <div class="diagram-scroll">
+        <svg viewBox="0 0 760 312" role="img" aria-label="Ciclo crear, probar, medir y corregir con aprobación humana">
+          <defs>
+            <marker id="cya" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="cy-arrow"/></marker>
+          </defs>
+          <path class="cy-line" d="M224 136H272" marker-end="url(#cya)"/>
+          <path class="cy-line" d="M480 136H528" marker-end="url(#cya)"/>
+          <path class="cy-line" d="M636 76V108" marker-end="url(#cya)"/>
+          <path class="cy-line" d="M636 164V236" marker-end="url(#cya)"/>
+          <path class="cy-line" d="M528 264H480" marker-end="url(#cya)"/>
+          <path class="cy-line" d="M272 264H224" marker-end="url(#cya)"/>
+          <path class="cy-line" d="M120 236V164" marker-end="url(#cya)"/>
+          <text class="cy-sub" x="130" y="204">si se aprueba</text>
+
+          <rect class="cy-box" x="528" y="20" width="216" height="56" rx="4"/>
+          <text class="cy-name" x="636" y="44" text-anchor="middle">Generador de escenarios</text>
+          <text class="cy-sub" x="636" y="60" text-anchor="middle">Desde huecos de cobertura</text>
+          <rect class="cy-box" x="16" y="108" width="208" height="56" rx="4"/>
+          <text class="cy-name" x="120" y="132" text-anchor="middle">Agente creador</text>
+          <text class="cy-sub" x="120" y="148" text-anchor="middle">Crea o ajusta el AVA</text>
+          <rect class="cy-box" x="272" y="108" width="208" height="56" rx="4"/>
+          <text class="cy-name" x="376" y="132" text-anchor="middle">Versión en TestReady</text>
+          <text class="cy-sub" x="376" y="148" text-anchor="middle">publish_version, test_only</text>
+          <rect class="cy-box" x="528" y="108" width="216" height="56" rx="4"/>
+          <text class="cy-name" x="636" y="132" text-anchor="middle">Evaluación automática</text>
+          <text class="cy-sub" x="636" y="148" text-anchor="middle">ava-evaluate + evaluador</text>
+          <rect class="cy-box" x="528" y="236" width="216" height="56" rx="4"/>
+          <text class="cy-name" x="636" y="260" text-anchor="middle">Métricas y fallos</text>
+          <text class="cy-sub" x="636" y="276" text-anchor="middle">Por versión del AVA</text>
+          <rect class="cy-box" x="272" y="236" width="208" height="56" rx="4"/>
+          <text class="cy-name" x="376" y="260" text-anchor="middle">Agente analista</text>
+          <text class="cy-sub" x="376" y="276" text-anchor="middle">Regresión y propuesta</text>
+          <rect class="cy-key" x="16" y="236" width="208" height="56" rx="4"/>
+          <text class="cy-name" x="120" y="260" text-anchor="middle">Aprobación humana</text>
+          <text class="cy-sub" x="120" y="276" text-anchor="middle">Acepta o descarta el cambio</text>
+        </svg>
+      </div>
+    </div>
+    <div class="agents">
+      <div class="agent"><h4>Generador de escenarios</h4><p>Llena los huecos de cobertura, a partir de paquetes por industria y adversariales.</p></div>
+      <div class="agent"><h4>Disparo automático</h4><p>Por versión, vía MCP, y en corrida programada sobre todo el portafolio.</p></div>
+      <div class="agent"><h4>Agente analista</h4><p>Parte de la regresión: qué escenarios empeoraron y por qué.</p></div>
+    </div>
+    <div class="rules">
+      <h4>Reglas</h4>
+      <ul>
+        <li>Nada se publica sin aprobación humana.</li>
+        <li>Los agentes no pueden editar escenarios, overlay ni gates.</li>
+        <li>El ciclo tiene un límite de iteraciones; al llegar, se detiene y pide revisión.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section dark" id="ruta">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">Ruta</p>
+      <h2 class="h2">Primero medir, después automatizar</h2>
+    </div>
+    <div class="road">
+      <div class="stop">
+        <p class="when">Fase 1 · Componente</p>
+        <h4>Métricas y seguimiento</h4>
+        <ul>
+          <li>Lee los archivos de ava-evaluate</li>
+          <li>Resolución, fidelidad y clasificación de fallas</li>
+          <li>Set de calibración de la evaluación (~30)</li>
+          <li>Fase 1.5: eficiencia, robustez, errores y cobertura</li>
+          <li>Histórico y regresión por versión</li>
+        </ul>
+      </div>
+      <div class="stop gate">
+        <p class="when">Puerta</p>
+        <h4>Métricas confiables</h4>
+        <p>Los 4 criterios de abajo se cumplen. Si no, el agente analista optimiza contra errores de la evaluación.</p>
+      </div>
+      <div class="stop later">
+        <p class="when">Fase 2 · Agentes</p>
+        <h4>Generar, disparar, analizar</h4>
+        <ul>
+          <li>Generador desde huecos de cobertura</li>
+          <li>Disparo por versión y monitoreo del portafolio</li>
+          <li>Analista con aprobación humana</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="criteria">
+      <h3>Criterios para pasar a la fase 2</h3>
+      <p>Un agente que corrige el AVA persigue exactamente lo que dicen las métricas. Si una métrica está mal, el agente “arregla” el AVA para darle gusto a la métrica.</p>
+      <div class="crit-grid">
+        <div class="crit"><span class="n">1</span><div><b>Las fallas están clasificadas</b><p>El agente solo actúa sobre fallas del AVA, nunca sobre fallas de la evaluación o del juez.</p><span class="why">En la corrida real, el analista habría reescrito las instrucciones de las FAQ cuando el AVA no respondió nada.</span></div></div>
+        <div class="crit"><span class="n">2</span><div><b>La evaluación está calibrada</b><p>Runner y juez coinciden con el equipo en ~30 conversaciones etiquetadas, incluidas respuestas vacías y veredictos que contradicen la conversación. Cada corrida registra cómo se evaluó.</p><span class="why">En el ID 11111 el veredicto contradijo su propia evidencia; el agente habría “corregido” algo que quizá estaba bien.</span></div></div>
+        <div class="crit"><span class="n">3</span><div><b>Sabemos cuánto ruido hay</b><p>El mismo AVA, sin cambios, corrido varias veces. Un cambio menor que esa variación no cuenta como mejora.</p><span class="why">La misma pregunta de plazos salió bien en un attempt y vacía en los otros dos.</span></div></div>
+        <div class="crit"><span class="n">4</span><div><b>Resolución y fidelidad están bien definidas</b><p>Son el objetivo del agente. Las demás métricas sirven para diagnosticar, no para optimizar.</p><span class="why">Eficiencia, robustez y manejo de errores pueden esperar.</span></div></div>
+      </div>
+      <p class="later-note">Y una regla que no cambia: el agente que corrige el AVA no puede tocar escenarios, gates ni juez. Si puede, la forma más fácil de mejorar la métrica es cambiar la prueba.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="pasos">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker">Siguientes pasos</p>
+      <h2 class="h2">Para arrancar</h2>
+    </div>
+    <div class="two">
+      <div>
+        <h3>Para construir el componente</h3>
+        <ol>
+          <li>Presentar la propuesta al equipo de ava-mcp y acordar dónde vive.</li>
+          <li>Prototipo que lea <code>attempt-N.json</code> y <code>scorecard.json</code> de corridas existentes, calcule resolución y fidelidad, y clasifique las fallas.</li>
+          <li>Etiquetar ~30 conversaciones para calibrar la evaluación, incluidos casos donde el veredicto contradice la conversación.</li>
+          <li>Fase 1.5: eficiencia, robustez, manejo de errores y cobertura.</li>
+          <li>Comparar dos corridas del mismo AVA para validar la regresión.</li>
+        </ol>
+      </div>
+      <div>
+        <h3>Para el equipo de ava-mcp</h3>
+        <ul class="plist">
+          <li><span class="k">Contrato</span><span>JSON Schema versionado para <code>attempt-N.json</code> y <code>scorecard.json</code>.</span></li>
+          <li><span class="k">Juez</span><span>Registrar <code>judgeModel</code> en cada attempt.</span></li>
+          <li><span class="k">Guardrails</span><span>Capturar <code>guardrail_events</code> desde el código, no desde el runner.</span></li>
+          <li><span class="k">Umbral</span><span>Con 0.67 y 3 attempts se exige 3 de 3; aclarar o ajustar, y mostrarlo como fracción.</span></li>
+          <li><span class="k">Ubicación</span><span>Decidir juntos: separado o módulo dentro de ava-mcp.</span></li>
+          <li><span class="k">Abierta</span><span>¿El Preview API expone el consumo del AVA? (documentación de Genesys)</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">Evaluador de AVAs · Propuesta del equipo · SC México</div>
+</footer>
+
+<dialog id="dlg-mcp" aria-labelledby="mcp-title">
+  <div class="dlg">
+    <div class="dlg-top">
+      <div>
+        <p class="kicker">Por dentro</p>
+        <h3 id="mcp-title">Así corre una evaluación en ava-mcp</h3>
+      </div>
+      <button class="close" id="close-mcp" aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <p class="small">Lo que hace código es reproducible. Lo que hace el LLM de Cursor puede variar según el modelo de quien la corra.</p>
+    <div class="flow">
+      <div class="st"><span class="n">1</span><div><b><code>ava-test</code> · escribir el escenario</b><p>Persona, goal, turnos, trayectoria de referencia y rúbrica en <code>test-cases/*.json</code>. No ejecuta nada.</p></div><span class="tag human">Persona + Cursor</span></div>
+      <div class="st"><span class="n">2</span><div><b><code>ava-evaluate</code> · preparar</b><p>Proyecta el costo y lanza al scenario-runner.</p></div><span class="tag code">Código</span></div>
+      <div class="loop">
+        <span class="loop-lbl">Pasos 3–8: se repiten por cada attempt, con sesión nueva</span>
+        <div class="st"><span class="n">3</span><div><b>Abrir sesión</b><p>Un agente en Cursor llama <code>cicero_start_session</code> contra la versión en TestReady.</p></div><span class="tag llm">LLM de Cursor</span></div>
+        <div class="loop inner">
+          <span class="loop-lbl">Pasos 4–5: por cada turno</span>
+          <div class="st"><span class="n">4</span><div><b>Mensaje del cliente</b><p><code>fixed_user</code> manda texto literal; <code>actor</code> lo inventa según persona y goal; <code>fixed_agent</code> solo compara la respuesta.</p></div><span class="tag llm">LLM de Cursor</span></div>
+          <div class="st"><span class="n">5</span><div><b><code>cicero_send_message</code></b><p>El AVA llama a los Data Actions (mocks) y devuelve texto, <code>toolCalls</code>, <code>toolResults</code> y guardrails.</p></div><span class="tag gen">Genesys</span></div>
+        </div>
+        <div class="st"><span class="n">6</span><div><b>Registrar</b><p>El runner guarda transcript, <code>tool_calls</code> y <code>guardrail_events</code>. <span class="warn">Si olvida los guardrails, faltan.</span></p></div><span class="tag llm">LLM de Cursor</span></div>
+        <div class="st"><span class="n">7</span><div><b>Layer 1 · <code>validate_trajectory</code></b><p>Tools, parámetros y violaciones de guardrails contra la referencia.</p></div><span class="tag code">Código</span></div>
+        <div class="st"><span class="n">8</span><div><b>Layer 2 · juez</b><p>Califica las assertions de la rúbrica. <span class="warn">No queda registrado qué modelo o script juzgó.</span> Todo queda en <code>attempt-N.json</code>.</p></div><span class="tag llm">LLM de Cursor</span></div>
+      </div>
+      <div class="st"><span class="n">9</span><div><b>Veredicto por escenario</b><p><code>successRate</code> = aprobados ÷ attempts, contra el umbral (0.67: con 3 attempts, en la práctica se necesitan 3 de 3).</p></div><span class="tag code">Código</span></div>
+      <div class="st"><span class="n">10</span><div><b><code>generate_scorecard</code></b><p>Agrega dimensiones con pesos, sin LLM, en <code>scorecard.json</code> y <code>scorecard.html</code>.</p></div><span class="tag code">Código</span></div>
+    </div>
+    <p class="we"><b>Dónde entramos nosotros:</b> después del paso 10, leyendo <code>attempt-N.json</code> y <code>scorecard.json</code>.</p>
+  </div>
+</dialog>
+
+<dialog id="dlg" aria-labelledby="dlg-title">
+  <div class="dlg">
+    <div class="dlg-top">
+      <div>
+        <p class="kicker">En palabras simples</p>
+        <h3 id="dlg-title">Métrica</h3>
+      </div>
+      <button class="close" id="dlg-close" aria-label="Cerrar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <p class="plain" id="dlg-plain"></p>
+    <div class="ex"><b>Ejemplo con el demo Tax</b><span id="dlg-ex"></span></div>
+    <p class="why" id="dlg-why"></p>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  var info = {
+    resolucion: ['Tasa de resolución', 'De cada 100 conversaciones de prueba, cuántas terminaron bien: el cliente obtuvo lo que pedía y el AVA no cometió ningún error grave.', 'El contribuyente da su acuse 54321 y el AVA le dice correctamente que su declaración está en procesamiento.', 'Es el número que le mostramos al cliente.'],
+    herramientas: ['Precisión de herramientas', 'Si el AVA fue a buscar la información al lugar correcto y con los datos correctos.', 'Consulta la declaración con el acuse que dio el cliente, no con otro número ni en otro sistema.', 'Si busca mal, todo lo que diga después está mal.'],
+    fidelidad: ['Fidelidad a datos', 'Si todo lo que dice el AVA es cierto según lo que respondió el sistema. Mide si inventa.', 'El sistema dice “devolución en trámite” y el AVA le promete una fecha o un monto: falla.', 'Es el error que más daño hace frente a un cliente.'],
+    guardrails: ['Guardrails', 'Si el AVA respeta las reglas que le pusimos: temas de los que no debe hablar, datos que no debe pedir, límites de lo que puede hacer.', 'Si una regla dice que no debe pedir datos sensibles, no los pide aunque el cliente los ofrezca.', 'Romper una regla cuenta como falla, aunque el cliente haya quedado contento. Si la corrida no registró sus eventos de guardrails, queda como “sin dato”, nunca como aprobada.'],
+    errores: ['Manejo de errores', 'Qué hace el AVA cuando no encuentra lo que el cliente busca.', 'El acuse no existe: el AVA debe decirlo claro y ofrecer otra opción, no inventar un estatus.', 'En la vida real los datos faltan o están mal más seguido de lo que creemos.'],
+    robustez: ['Robustez', 'Cuánto empeora el AVA con clientes complicados frente a los fáciles. Mientras más chico el número, mejor.', 'Un cliente que no sabe su acuse, cambia de tema o se enoja, contra uno que pregunta directo.', 'Muestra si el AVA solo funciona cuando todo sale perfecto.'],
+    consistencia: ['Consistencia', 'Si la misma prueba, repetida varias veces, sale igual. La IA no siempre responde lo mismo.', 'Si un escenario pasa 2 de 3 veces, no cuenta como consistente.', 'Sin esto no sabemos si una mejora es real o fue suerte.'],
+    eficiencia: ['Eficiencia', 'Si el AVA llegó a la respuesta sin dar vueltas: cuántos pasos usó contra los que necesitaba.', 'Bastaba una consulta y hizo tres: η = 3. Si repite la misma consulta una y otra vez, está en bucle.', 'Más pasos significa respuestas más lentas y más caras.']
+  };
+  function show(d) { if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', ''); }
+  function wire(d, closeId) {
+    document.getElementById(closeId).addEventListener('click', function () { d.close(); });
+    d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+  }
+  var dlg = document.getElementById('dlg');
+  document.querySelectorAll('.explain').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var d = info[b.getAttribute('data-m')];
+      if (!d) return;
+      document.getElementById('dlg-title').textContent = d[0];
+      document.getElementById('dlg-plain').textContent = d[1];
+      document.getElementById('dlg-ex').textContent = d[2];
+      document.getElementById('dlg-why').textContent = d[3];
+      show(dlg);
+    });
+  });
+  wire(dlg, 'dlg-close');
+  var dlgMcp = document.getElementById('dlg-mcp');
+  document.getElementById('open-mcp').addEventListener('click', function () { show(dlgMcp); });
+  wire(dlgMcp, 'close-mcp');
+
+  var links = Array.prototype.slice.call(document.querySelectorAll('.nav-link'));
+  if (!('IntersectionObserver' in window)) return;
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      var id = en.target.id;
+      links.forEach(function (a) {
+        var on = a.getAttribute('href') === '#' + id;
+        a.classList.toggle('active', on);
+        if (on && window.innerWidth < 900) {
+          try { a.parentNode.scrollTo({ left: a.offsetLeft - 40, behavior: 'smooth' }); } catch (e) {}
+        }
+      });
+    });
+  }, { rootMargin: '-30% 0px -60% 0px' });
+  document.querySelectorAll('section[id]').forEach(function (s) { obs.observe(s); });
+})();
+</script>
